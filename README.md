@@ -6,13 +6,9 @@
 - **run_nn_MPI.py** has modified **mravanelli's pytorch / kaldi / run_nn.py** [1].
 - **ps_server.py** is parameter server.
 - **run_exp_MPI.sh** is an executable shell script. 
-
 <pre><code> 
-	<blockquote>
-	 	<p>./run_exp_MPI.sh 'configure file' 'port' 'rank' 'world size' 'ip address'</p>
-	</blockquote>
+	 ./run_exp_MPI.sh 'configure file' 'port' 'rank' 'world size' 'ip address'
 </code></pre>
-
 - For the remainder of the code, just use the code in [1].
 
 
