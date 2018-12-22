@@ -1,18 +1,7 @@
 #-*- coding: euc-kr -*-
 #!/usr/bin/env python
 
-# pytorch_speechMLP 
-# Mirco Ravanelli 
-# Montreal Institute for Learning Algoritms (MILA)
-# University of Montreal 
 
-# January 2018
-
-# Description: 
-# This code implements with pytorch a basic MLP  for speech recognition. 
-# It exploits an interface to  kaldi for feature computation and decoding. 
-# How to run it:
-# python run_nn.py --cfg TIMIT_MLP.cfg
 
 import copy
 import my_optim
@@ -42,9 +31,7 @@ class MAIN_CLASS:
       self.check=0
       self.FLAG = torch.zeros(1)
   def ensure_shared_params(self,net,rank):    
-      
-      #flag = 0
-      #FLAG = torch.zeros(1)
+
       self.FLAG += 3
       dist.send(tensor=self.FLAG, dst=0)
       for param in net.parameters():
@@ -54,53 +41,30 @@ class MAIN_CLASS:
       for param in net.parameters():
       
           dist.recv(tensor=param.data, src=0)
-  ##############################
-  #def param_update(self,net,rank):
-  #    self.FLAG += 5
-  #    dist.send(tensor=self.FLAG, dst=0)
-  #    for param in net.parameters():
-      
-  #        dist.recv(tensor=param.data, src=0)
-  #    self.FLAG -= 5    
-  
 
   
   
   def main(self,rank):
       os.environ['CUDA_VISIBLE_DEVICES'] = "0,1,2,3"
       options=read_conf()
-      
-      # to do options
+
       do_training=bool(int(options.do_training))
       do_eval=bool(int(options.do_eval))
       do_forward=bool(int(options.do_forward))
       if do_forward:
         torch.cuda.set_device(0)
-        #torch.manual_seed(dist.get_rank())
         device = "cuda:{}".format(0)
       else:
         torch.cuda.set_device(dist.get_rank()-1)
-        #torch.manual_seed(dist.get_rank())
         device = "cuda:{}".format(dist.get_rank()-1)
       PS = Parameter_Server()
       if int(rank)==0 and do_training:
         PS.ps_server(rank)
-      #print(PS.cp)
-      #CP = PS.checkpoint
-      #print(CP)
       port = sys.argv[1]
-      #rank = sys.argv[2]
       world_size = sys.argv[3]
       ip_add = sys.argv[4]
-      #backend='tcp'
-      
-      # Reading options in cfg file
-      
-      #if do_forward:
-      #  print("forward") 
-      #else:
-      #  distributed.init_process_group(backend=str(backend),init_method='{}://{}:{}'.format( str(backend), str(ip_add), str(port)), rank=int(rank),world_size=int(world_size)-1)
-      # Reading data options
+
+
       fea_scp=options.fea_scp
       fea_opts=options.fea_opts
       lab_folder=options.lab_folder
@@ -115,11 +79,10 @@ class MAIN_CLASS:
       
       out_file=options.out_file
       
-      # Reading count file from kaldi
+
       count_file=options.count_file
       pt_file=options.pt_file
-      
-      # reading architectural options
+
       left=int(options.cw_left)
       right=int(options.cw_right)
       seed=int(options.seed)
@@ -127,7 +90,7 @@ class MAIN_CLASS:
       multi_gpu=bool(int(options.multi_gpu))
       NN_type=options.NN_type
       
-      # reading optimization options
+
       batch_size=int(options.batch_size)
       lr=float(options.lr)
       save_gpumem=int(options.save_gpumem)
@@ -146,17 +109,13 @@ class MAIN_CLASS:
       if NN_type=='MLP':
          from neural_nets import MLP as ann
          rnn=0
-      #device = torch.device("cuda:"+str(int(rank)-1)) 
+
       options.input_dim=429
       options.num_classes=1944
-      #print("ckeck")
+
       net = ann(options)
       if use_cuda:
             net.cuda(device=device)
-      
-      
-  
-      
       update_time=0
       sum_update_time=0
       st_update_time=0
@@ -189,18 +148,17 @@ class MAIN_CLASS:
       end_epoch_time=0  
       
       data_time=0
-      #sum_data_time=0
+
       st_data_time=0
       end_data_time=0 
       
       
       train_time=0
-      #sum_train_time=0
+
       st_train_time=0
       end_train_time=0 
       _, st_train_time= timestamp(), resource_usage(RUSAGE_SELF)   
-      #start_time=timeit.default_timer()
-      # Setting torch seed
+
       torch.manual_seed(seed)
       random.seed(seed)
       print("[INFO] Batch size: ",batch_size)
@@ -211,11 +169,9 @@ class MAIN_CLASS:
         dev_data_name=[0]
       if do_forward == 0:
         [dev_data_name,dev_data_set_ori,dev_data_end_index]=load_chunk(dev_fea_scp,dev_fea_opts,dev_lab_folder,dev_lab_opts,left,right,-1)   
-      
-      #print(np.shape(dev_data_set_ori))
+
       [data_name,data_set_ori,data_end_index]=load_chunk(fea_scp,fea_opts,lab_folder,lab_opts,left,right,seed)
-      ####
-      #data_len = int(len(dev_data_set_ori)/int(world_size)-1)
+
       data_len = int(len(data_set_ori)/(int(world_size)-1))
       if do_training:
         if int(world_size)-1==1:
@@ -245,15 +201,14 @@ class MAIN_CLASS:
           elif int(rank)==4:
             data_set_ori = data_set_ori[data_len*3:]
         data_len = len(data_set_ori)
-      ####
+
       end_data_time,_  = resource_usage(RUSAGE_SELF), timestamp()
       data_time = end_data_time.ru_utime - st_data_time.ru_utime
       print("data generate time: ", data_time)
-      #sum_val_time=sum_val_time+val_time
-      
-      #device_0 = torch.device("cuda:0") 
+
+
       print(np.shape(data_set_ori))
-      #print(dev_data_set_ori[500])
+
       if not(save_gpumem):
          data_set=torch.from_numpy(data_set_ori).float().cuda(device=device)
       else:
@@ -263,29 +218,21 @@ class MAIN_CLASS:
            dev_data_set=torch.from_numpy(dev_data_set_ori).float().cuda(device=device)
         else:
            dev_data_set=torch.from_numpy(dev_data_set_ori).float()  
-        
-      # Model initialization
+
       N_fea=data_set.shape[1]-1
       options.input_dim=N_fea
       N_out=int(data_set[:,N_fea].max()-data_set[:,N_fea].min()+1) 
       options.num_classes=N_out
       
-      
-      """   
-      
-      net.share_memory()
-      
-      """
-      # multi gpu data parallelization
+
       if multi_gpu:
        net = nn.DataParallel(net)
        
        
-       
-      # Loading model into the cuda device
+
       
       optimizer_worker=None       
-      # Optimizer initialization
+
       if optimizer_worker is None:
               optimizer_worker = optim.SGD(net.parameters(), lr=lr)
       else:
@@ -296,8 +243,7 @@ class MAIN_CLASS:
           net.load_state_dict(checkpoint_load['model_par'])
           optimizer_worker.load_state_dict(checkpoint_load['optimizer_par'])
           optimizer_worker.param_groups[0]['lr']=lr
-      #for shared_param in net.parameters():
-      #            print(shared_param)
+
       dev_N_snt=len(dev_data_name)
       N_snt=len(data_name)
       
@@ -306,13 +252,12 @@ class MAIN_CLASS:
         print("do training")
         net.train()
         test_flag=0   
-        ####
+
         if do_training:
           N_batches=int((N_snt/batch_size)/(int(world_size)-1))
         else:
           N_batches=int(N_snt/batch_size) 
-          #### 
-        ####N_batches=int(N_snt/batch_size) 
+ 
         if rnn==0:
          N_ex_tr=data_set.shape[0]
          N_batches=int(N_ex_tr/batch_size)
@@ -327,8 +272,7 @@ class MAIN_CLASS:
         post_file=kaldi_io.open_or_fd(out_file,'wb')
         counts = load_counts(count_file)
         
-      #print("check")
-      ####beg_batch=batch_size*int(rank)
+
       beg_batch=0
       end_batch=beg_batch+batch_size   
       
@@ -346,9 +290,7 @@ class MAIN_CLASS:
       temp_err=0
       dev_err_sum_tot=0
       dev_N_batches=0
-      #checkpoint={'model_par': sh_model.state_dict(),
-      #              'optimizer_par' : optimizer.state_dict()}
-      #start_time=timeit.default_timer()
+
       num_epoch=24
       main_class = MAIN_CLASS()
       if do_forward:
@@ -365,17 +307,15 @@ class MAIN_CLASS:
              for k in range(batch_size):
               snt_len=data_end_index[snt_index]-beg_snt
               N_zeros=max_len-snt_len
-              # Appending a random number of initial zeros, tge others are at the end. 
               N_zeros_left=random.randint(0,N_zeros)
-              # randomizing could have a regularization effect
               inp[N_zeros_left:N_zeros_left+snt_len,k,:]=data_set[beg_snt:beg_snt+snt_len,0:N_fea] 
               lab[N_zeros_left:N_zeros_left+snt_len,k]=data_set[beg_snt:beg_snt+snt_len,-1]
               
               beg_snt=data_end_index[snt_index]
               snt_index=snt_index+1
            
-            else: # MLP case
-             # features and labels for batch i
+            else: 
+
              inp= Variable(data_set[beg_batch:end_batch,0:N_fea]).contiguous().cuda(device=device)
              lab= Variable(data_set[beg_batch:end_batch,N_fea]).contiguous().long().cuda(device=device)
              
@@ -403,51 +343,35 @@ class MAIN_CLASS:
               kaldi_io.write_mat(post_file, pout.data.cpu().numpy()-np.log(counts/np.sum(counts)), data_name[i])
             
            if do_training:
-               
-            # free the gradient buffer
+
             optimizer.zero_grad()  
           
-            # Gradient computation
+
             loss.backward()
-            
-            # Gradient clipping
-            #torch.nn.utils.clip_grad_norm(net.parameters(), 1)
-          
-            # updating parameters
-            #print("[INFO]update parameters")
+
+
             optimizer.step()
-           
-           # Loss accumulation 
+
            
            loss_sum=loss_sum+loss.data
            err_sum=err_sum+err.data
-           #print("[INFO]Batch: ", i)
-             # update it to the next batch 
+
            beg_batch=end_batch
            end_batch=beg_batch+batch_size
-           #if do_training:
-                #print("===== Update Model =====")
-                #checkpoint={'model_par': net.state_dict(),
-                #    'optimizer_par' : optimizer.state_dict()}
+
       else:
-        #print("check2")
+
        m=0 
        for e in range(num_epoch):
         print("Batch size: ",m)
         _, st_epoch_time= timestamp(), resource_usage(RUSAGE_SELF)
         if e>0:
           
-          
-          ### dev set 테스트
-          #if int(rank)==0:
           dev_N_batches=dev_N_snt
           if e>1:
               temp_err=dev_err_sum_tot
-          #print("temp err: %0.3f"% temp_err)
+
           net.eval()
-          #net.load_state_dict(sh_model.state_dict())
-          #optimizer.load_state_dict(optimizer.state_dict())
-          
           test_flag=1
           dev_batch_size=1
           dev_beg_batch=0
@@ -467,11 +391,9 @@ class MAIN_CLASS:
                   inp=inp.view(inp.shape[0],1,inp.shape[1])
                   lab=lab.view(lab.shape[0],1)
                 dev_beg_snt=dev_data_end_index[j]
-                
-              
-             #print("check4")
+
                 [dev_loss,dev_err,dev_pout] = net(dev_inp,dev_lab,test_flag,rank)
-                ###[dev_loss,dev_err,dev_pout] = net(dev_inp,dev_lab,test_flag,rank)
+
                 dev_loss_sum=dev_loss_sum+dev_loss.data
                 dev_err_sum=dev_err_sum+dev_err.data
                          
@@ -484,43 +406,28 @@ class MAIN_CLASS:
           sum_val_time=sum_val_time+val_time
           print('[INFO] EPOCH: %d, In Worker: %d, val_Err: %0.3f, val_loss: %0.3f, val_time: %0.3f' % ((e+1), int(rank),dev_err_sum/dev_N_batches, dev_loss_sum/dev_N_batches, sum_val_time))
           dev_err_sum_tot=dev_err_sum/dev_N_batches   
-          #print("dev-err: %0.3f" % dev_err_sum_tot)
           if e>1:
               threshold = (temp_err-dev_err_sum_tot)/dev_err_sum_tot
-              #print("threshold: %0.3f" % threshold)
+
               if threshold<0.0005:
                 lr = lr * 0.5
           
           net.train()
-          ####beg_batch=batch_size*int(rank)
+
           beg_batch=0
           end_batch=beg_batch+batch_size
           
           beg_snt=0
-          #print("epoch: ", e+1)
-          #net.load_state_dict(checkpoint['model_par'])
-          #optimizer.load_state_dict(checkpoint['optimizer_par'])
-          #lr = lr * 0.9
+
           _, st_shu_time= timestamp(), resource_usage(RUSAGE_SELF)
           
           np.random.shuffle(data_set_ori)
           
-          #print("pt-file!!")
-          #checkpoint_load = torch.load(out_file)
-          #net.load_state_dict(checkpoint_load['model_par'])
-          #optimizer.load_state_dict(checkpoint_load['optimizer_par'])
-          #optimizer.param_groups[0]['lr']=lr
-          
-          ###print("[INFO]UPDATE Learning Rate: ", lr)
-          #[dev_data_name,dev_data_set,dev_data_end_index]=load_chunk(fea_scp,fea_opts,lab_folder,lab_opts,left,right,seed+num_epoch)
-          
-          #print(dev_data_set_ori[1])
           if not(save_gpumem):
              data_set=torch.from_numpy(data_set_ori).float().cuda(device=device)
           else:
              data_set=torch.from_numpy(data_set_ori).float()  
-          #print("start next")
-          # Model initialization
+
           N_fea=data_set.shape[1]-1
           options.input_dim=N_fea
           N_out=int(data_set[:,N_fea].max()-data_set[:,N_fea].min()+1) 
@@ -530,19 +437,11 @@ class MAIN_CLASS:
           sum_shu_time=sum_shu_time+shu_time
           loss_sum=0
           err_sum=0
-        ####for i in range(int(rank),N_batches,int(world_size)-1):
+
         for i in range(N_batches):
-           #checkpoint_load = torch.load(pt_file)
-           #net.load_state_dict(checkpoint_load['model_par'])
-           
+
            _, st_load_time= timestamp(), resource_usage(RUSAGE_SELF)
-           #main_class.param_update(net,rank)
-           #net.load_state_dict(CP)
-           
-           #net.load_state_dict(checkpoint['model_par'])
-           #optimizer.load_state_dict(optimizer.state_dict())
-           #if optimizer is None:
-           #   optimizer = optim.SGD(sh_model.parameters(), lr=lr)
+
            end_load_time,_  = resource_usage(RUSAGE_SELF), timestamp()
            load_time = end_load_time.ru_utime - st_load_time.ru_utime
            if do_training :
@@ -557,9 +456,9 @@ class MAIN_CLASS:
              for k in range(batch_size):
               snt_len=data_end_index[snt_index]-beg_snt
               N_zeros=max_len-snt_len
-              # Appending a random number of initial zeros, tge others are at the end. 
+
               N_zeros_left=random.randint(0,N_zeros)
-              # randomizing could have a regularization effect
+
               inp[N_zeros_left:N_zeros_left+snt_len,k,:]=data_set[beg_snt:beg_snt+snt_len,0:N_fea] 
               lab[N_zeros_left:N_zeros_left+snt_len,k]=data_set[beg_snt:beg_snt+snt_len,-1]
               
@@ -567,9 +466,8 @@ class MAIN_CLASS:
               snt_index=snt_index+1
            
            
-            else: # MLP case
-             # features and labels for batch i
-             #print("check3")
+            else:
+
              inp= Variable(data_set[beg_batch:end_batch,0:N_fea]).contiguous().cuda(device=device)
              lab= Variable(data_set[beg_batch:end_batch,N_fea]).contiguous().long().cuda(device=device)
             
@@ -583,10 +481,9 @@ class MAIN_CLASS:
                 lab=lab.view(lab.shape[0],1)
               beg_snt=data_end_index[i]
               
-            
-           #print("check4")
+
            [loss,err,pout] = net(inp,lab,test_flag,rank)
-           #print("check4")
+
            if multi_gpu:
              loss=loss.mean()
              err=err.mean()
@@ -598,15 +495,12 @@ class MAIN_CLASS:
               kaldi_io.write_mat(post_file, pout.data.cpu().numpy()-np.log(counts/np.sum(counts)), data_name[i])
             
            if do_training:
-            #print("check5")   
-            # free the gradient buffer
+
             optimizer_worker.zero_grad()  
           
-            # Gradient computation
-            
+
             loss.backward()
-            #net.to('cpu')
-            
+
             _,st_update_time = timestamp(), resource_usage(RUSAGE_SELF)
             
             main_class.ensure_shared_params(net,rank)
@@ -616,104 +510,50 @@ class MAIN_CLASS:
             
             cc=0
             _,st_model_time = timestamp(), resource_usage(RUSAGE_SELF)
-            #optimizer.step()
-            
+
             end_model_time,_  = resource_usage(RUSAGE_SELF), timestamp()
             model_time = end_model_time.ru_utime-st_model_time.ru_utime
-            #checkpoint={'model_par': sh_model.state_dict(),
-            #        'optimizer_par' : optimizer.state_dict()}
-            
-            #net.cuda(device=device)
-            #_, st_load_time= timestamp(), resource_usage(RUSAGE_SELF)
-            #param_update(net,sh_model,rank)
-            #end_load_time,_  = resource_usage(RUSAGE_SELF), timestamp()
-            #load_time = end_load_time.ru_utime - st_load_time.ru_utime
-            
+
             b=0
              
-            """
-            if int(rank)==0:
-              for shared_param in net.parameters():
-                  cc=cc+1
-                  if cc==2:
-                    print("two %d" %int(rank))
-                    print(shared_param)
-            """
-            
-            
-            #for name, param in net.named_parameters():
-            #    b=b+1
-            #    if param.requires_grad:
-            #      print(name)
-            #      print("net para: ")
-            #      print(param.grad)
-            #      print("named parameter %d" % b)
-                  
-            ##for name, param in net.named_parameters():
-            ##  b=b+1
-              
-            ##  if param.requires_grad:
-                  #print("sh_model para: ")
-            ##      if b==16:
-                    ###print("named parameter %d" % b)
-             ##       print (param)
-            
-           # Loss accumulation 
+
            sum_update_time=sum_update_time + update_time
            sum_load_time=sum_load_time+load_time
            sum_model_time= sum_model_time+model_time
            loss_sum=loss_sum+loss.data
            err_sum=err_sum+err.data
-           #if (i-int(rank))%100==0:
+
            if i%100==0:
              
              if i!=0:
-               ####print('[INFO] EPOCH: %d, Batch: %d, In Worker: %d, Err: %0.3f, loss: %0.3f, update_time: %0.3f, load_time: %0.3f' % ((e+1),i, int(rank),err_sum/(i/int(world_size)-1), loss_sum/(i/int(world_size)-1),sum_update_time,sum_load_time))
-               #print(int(rank))
+
                print('[INFO] EPOCH: %d, Batch: %d, In Worker: %d, Err: %0.3f, loss: %0.3f, update_time: %0.3f, load_time: %0.3f' % ((e+1),i, int(rank),err_sum/i, loss_sum/i,sum_update_time,sum_load_time))           
-           ####beg_batch=end_batch+batch_size*(int(world_size)-1-1)
+
            beg_batch=end_batch
            end_batch=beg_batch+batch_size
-           
-           
-           #print("model update")
-          
+
            m=m+1
         end_epoch_time,_  = resource_usage(RUSAGE_SELF), timestamp()
         epoch_time = end_epoch_time.ru_utime - st_epoch_time.ru_utime
         sum_epoch_time= sum_epoch_time+epoch_time
-        #print(sh_model.fco.weight)
-        #print(net.fco.weight)
+
         if do_training:
             checkpoint={'model_par': net.state_dict(),
                     'optimizer_par' : optimizer_worker.state_dict()}
             torch.save(checkpoint,options.out_file)    
-        #checkpoint={'model_par': net.state_dict(),
-        #            'optimizer_par' : optimizer.state_dict()}        
-                
-                
-      
-      ###print("Worker Train End: ",int(rank)) 
-      ####loss_tot=loss_sum/(N_batches/int(world_size)-1)
-      ####err_tot=err_sum/(N_batches/int(world_size)-1)
+
       loss_tot=loss_sum/(N_batches)
       err_tot=err_sum/(N_batches)
       end_train_time,_  = resource_usage(RUSAGE_SELF), timestamp() 
       train_time = end_train_time.ru_utime - st_train_time.ru_utime
-      #end_time=timeit.default_timer() 
-      
-      
-       # check point saving
-      ####if do_training and int(rank)==0:
+
       if do_training:
         checkpoint={'model_par': net.state_dict(),
                     'optimizer_par' : optimizer_worker.state_dict()}
         torch.save(checkpoint,options.out_file)
-      
-      #if int(rank)==0:
+
       info_file=out_file.replace(".pkl",".info")
-        
-        # Printing info file
+
       with open(info_file, "a") as inf:
            inf.write("model_in=%s\n" %(pt_file))
            inf.write("fea_in=%s\n" %(fea_scp))
@@ -734,15 +574,13 @@ class MAIN_CLASS:
       if do_forward:
           post_file.close()
       
-      
-          #init_process(args)
+
   
   
   
     
 def init_processes(rank, world_size, fn, backend,port,ip_add):
-      """ Initialize the distributed environment. """
-      #Funcc = MAIN_CLASS
+
       if int(rank)==0:
         print("wait worker")
       options=read_conf()
@@ -763,90 +601,12 @@ def init_processes(rank, world_size, fn, backend,port,ip_add):
         fn(rank)
 
 if __name__ == '__main__':
-    #os.environ['CUDA_LAUNCH_BLOCKING'] = '0'
-    #os.environ['OMP_NUM_THREADS'] = '5'
+   
     os.environ['CUDA_VISIBLE_DEVICES'] = "0,1,2,3"
     
     options=read_conf()
     do_forward=bool(int(options.do_forward))
-    """
-    do_training=bool(int(options.do_training))
-    do_eval=bool(int(options.do_eval))
-    do_forward=bool(int(options.do_forward))
-    
-    fea_scp=options.fea_scp
-    fea_opts=options.fea_opts
-    lab_folder=options.lab_folder
-    lab_opts=options.lab_opts
-    
-    out_file=options.out_file
-    
-    # Reading count file from kaldi
-    count_file=options.count_file
-    pt_file=options.pt_file
-    
-    # reading architectural options
-    left=int(options.cw_left)
-    right=int(options.cw_right)
-    seed=int(options.seed)
-    use_cuda=bool(int(options.use_cuda))
-    multi_gpu=bool(int(options.multi_gpu))
-    NN_type=options.NN_type
-    
-    # reading optimization options
-    batch_size=int(options.batch_size)
-    lr=float(options.lr)
-    save_gpumem=int(options.save_gpumem)
-    opt=options.optimizer
-
-    if NN_type=='RNN':
-       from neural_nets import RNN as ann
-       rnn=1
-    
-    if NN_type=='LSTM':
-       from neural_nets import LSTM as ann
-       rnn=1
-       
-    if NN_type=='GRU':
-      from neural_nets import GRU as ann
-      rnn=1
-    if NN_type=='MLP':
-       from neural_nets import MLP as ann
-       rnn=0
-
-    #torch.manual_seed(seed)
-    #random.seed(seed)
-    
-    #if rnn or do_eval or do_forward:
-    #   seed=-1
-       
-    #[dev_data_name,dev_data_set,dev_data_end_index]=load_chunk(fea_scp,fea_opts,lab_folder,lab_opts,left,right,seed)
-    
-    #device_0 = torch.device("cuda:0") 
-    #print(np.shape(dev_data_set))
-    #if not(save_gpumem):
-    #   dev_data_set=torch.from_numpy(dev_data_set).float().cuda()
-    #else:
-    #   dev_data_set=torch.from_numpy(dev_data_set).float()  
-    
-    # Model initialization
-    #N_fea=dev_data_set.shape[1]-1
-    options.input_dim=429
-    #N_out=int(dev_data_set[:,N_fea].max()-dev_data_set[:,N_fea].min()+1) 
-    options.num_classes=1944
-    print(options.input_dim)
-    print(options.num_classes)
-    para = 0
-    sh_model = ann(options)
-    #sh_model.share_memory()
-    
-    if opt=='sgd':
-      optimizer = optim.SGD(sh_model.parameters(), lr=lr) 
-    else:
-      optimizer = optim.RMSprop(sh_model.parameters(), lr=lr,alpha=0.95, eps=1e-8) 
-    sh_model.to('cpu')
-    #optimizer.to('cpu')
-    """
+ 
     
     port = sys.argv[1]
     world_rank = sys.argv[2]
@@ -865,21 +625,7 @@ if __name__ == '__main__':
     Funcc = MAIN_CLASS()
     
     init_processes(world_rank, world_size, Funcc.main, backend,port,ip_add)
-    """
-    for rank in range(int(world_size)):
-        p = Process(target=init_processes, args=(world_rank, world_size, Funcc.main,backend,port,ip_add))
-        p.start()
-        processes.append(p)
-    #p = Process(target=ps_server, args=(world_size, sh_model, optimizer))
-    #p.start()
-    #processes.append(p)
-    for p in processes:
-        p.join()
-    
-    #os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-    """
-    #main()
-    
+
 
     
 
